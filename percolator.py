@@ -93,6 +93,7 @@ def BinomialRandomGraph(k, p):
 # This method creates and plays a number of random graphs using both passed in players.
 def PlayBenchmark(p1, p2, iters):
     graphs = (
+    # range of number of vertices: 2-40 [FIX LATER]
         BinomialRandomGraph(random.randint(1, 20), random.random())
         for _ in range(iters)
     )
@@ -105,6 +106,8 @@ def PlayBenchmark(p1, p2, iters):
         wins[winner_a] += 1
         winner_b = PlayGraph(p2, p1, g2)
         wins[1-winner_b] += 1
+        print("Number of wins")
+        print(sum(wins))
     return wins
 
 
@@ -131,11 +134,66 @@ class PercolationPlayer:
     # `graph` is an instance of a Graph, `player` is an integer (0 or 1).
     # Should return a vertex `v` from graph.V where v.color == player
     def ChooseVertexToRemove(graph, player):
-        return random.choice([v for v in graph.V if v.color == player])
+        if len(graph.V)>=11:
+            print("Too hard!")
+            return random.choice([v for v in graph.V if v.color == player])
+        print(PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[1])
+        return PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[0]
+
+    def ChooseVertexToRemove_helper(graph, player):
+        my_moves = [v for v in graph.V if v.color == player]
+        p_wins = []
+        for v in my_moves:
+            new_graph = copy.deepcopy(graph)
+            original_vertex = new_graph.GetVertex(v.index)
+            Percolate(new_graph, original_vertex) #PROBLEM
+            if new_graph == None:
+                return (v, 1)
+            elif len([v for v in new_graph.V if v.color == (player+1)%2])==0:
+                return (v, 1)
+            your_moves = [v for v in new_graph.V if v.color == ((player+1)%2)]
+            p_win = 0
+            for u in your_moves:
+                new_new_graph = copy.deepcopy(new_graph)
+                original_vertex_new = new_new_graph.GetVertex(u.index)
+                Percolate(new_new_graph, original_vertex_new) #PROBLEM
+                if new_new_graph == None:
+                    p_win += 0
+                elif len([v for v in new_new_graph.V if v.color == player])==0:
+                    p_win += 0
+                else:
+                    p_win = p_win + PercolationPlayer.ChooseVertexToRemove_helper(new_new_graph, player)[1]
+            p_win = p_win/len(your_moves)
+            p_wins.append(p_win)
+        max_p = 0
+        max_p_index = 0
+        for i in range(len(p_wins)):
+            if p_wins[i]>=max_p:
+                max_p = p_wins[i]
+                max_p_index = i
+        return (my_moves[max_p_index], max_p)
+
+
 
 # Feel free to put any personal driver code here.
 def main():
-    print(5)
+    pass
 
 if __name__ == "__main__":
-    main()
+    # NOTE: we are not creating INSTANCES of these classes, we're defining the players
+    # as the class itself. This lets us call the static methods.
+    #p1 = RandomPlayer
+    # Comment the above line and uncomment the next two if
+    # you'd like to test the PercolationPlayer code in this repo.
+    from percolator import PercolationPlayer
+    p1 = PercolationPlayer
+    p2 = RandomPlayer
+    # Used to be 200 [FIX LATER]
+    iters = 50
+    wins = PlayBenchmark(p1, p2, iters)
+    print(wins)
+    print(
+        "Player 1 (Me): {0} Player 2 (Random): {1}".format(
+            1.0 * wins[0] / sum(wins), 1.0 * wins[1] / sum(wins)
+        )
+    )
