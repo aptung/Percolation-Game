@@ -3,10 +3,11 @@ import itertools
 import copy
 import sys
 import traceback
+import time
 
-from util_copy import Vertex
-from util_copy import Edge
-from util_copy import Graph
+from util_working import Vertex
+from util_working import Edge
+from util_working import Graph
 
 # Removes the given vertex v from the graph, as well as the edges attached to it.
 # Removes all isolated vertices from the graph as well.
@@ -140,8 +141,8 @@ class PercolationPlayer:
         if len(graph.V)>=10:
             #print("Too hard!")
             return random.choice([v for v in graph.V if v.color == player])
-        #print(PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[1])
-        #print("Removing")
+        print(PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[1])
+        print("Removing")
         return PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[0]
 
     # Recursive helper. Returns a tuple, composed of the vertex to be removed
@@ -201,11 +202,13 @@ if __name__ == "__main__":
     #from percolator import PercolationPlayer
     p1 = PercolationPlayer
     p2 = RandomPlayer
+    start_time = time.time()
     # Used to be 200 [FIX LATER]
-    iters = 300
+    iters = 50
     wins = PlayBenchmark(p1, p2, iters)
     print(
         "Player 1 (Me): {0} Player 2 (Random): {1}".format(
             1.0 * wins[0] / sum(wins), 1.0 * wins[1] / sum(wins)
         )
     )
+    print(time.time()-start_time)

@@ -9,15 +9,6 @@ class Vertex:
         else:
             return "Vertex({0}, {1})".format(self.index, self.color)
 
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return (self.index==other.index) and (self.color==other.color)
-        else:
-            return False
-
-    def __hash__(self):
-        return hash((self.index, self.color))
-
 class Edge:
     def __init__(self, a, b):
         self.a = a
@@ -25,15 +16,6 @@ class Edge:
 
     def __repr__(self):
         return "Edge({0}, {1})".format(self.a, self.b)
-
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return (self.a==other.a and self.b==other.b) or (self.a==other.b and self.b==other.a)
-        else:
-            return False
-
-    def __hash__(self):
-        return hash(repr(self))
 
 
 class Graph:
@@ -44,14 +26,10 @@ class Graph:
     def __repr__(self):
         return "Graph({0}, {1})".format(self.V, self.E)
 
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return (self.V==other.V) and (self.E==other.E)
-        else:
-            return False
-
-    def __hash__(self):
-        return hash(repr(self))
+    def __deepcopy__(self, memo):
+        V = {v.index: Vertex(v.index, v.color) for v in self.V}
+        E = [Edge(V[e.a.index], V[e.b.index]) for e in self.E]
+        return Graph(V.values(), E)
 
     # Gets a vertex with given index if it exists, else return None.
     def GetVertex(self, i):
