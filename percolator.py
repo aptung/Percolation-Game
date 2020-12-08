@@ -1,5 +1,4 @@
 import random
-random.seed(0)
 import itertools
 import copy
 import sys
@@ -199,16 +198,14 @@ class PercolationPlayer:
             '''undecideds = [[v, len(graph.IncidentEdges(v))] for v in graph.V if v.color == player]
             undecideds.sort(key = lambda x: x[1])
             return undecideds[0][0]'''
-            #print("too hard")
-            return random.choice([v for v in graph.V if v.color == player])
+            print("too hard")
+            #return random.choice([v for v in graph.V if v.color == player])
+        #memoized_remover = memoize(PercolationPlayer.ChooseVertexToRemove_helper)
+        #result = memoized_remover(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
         result = PercolationPlayer.ChooseVertexToRemove_helper(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
         print(result[1])
         print("Removing")
         return result[0]
-        '''result = PercolationPlayer.ChooseVertexToRemove_helper(graph, player)
-        print(result[1])
-        print("Removing")
-        return result[0]'''
 
     # Recursive helper. Returns a tuple, composed of the vertex to be removed
     # followed by the probability that I win
@@ -218,9 +215,6 @@ class PercolationPlayer:
         p_wins = []
         # Consider each of my possible moves
         for v in my_moves:
-            '''new_graph = copy.deepcopy(graph)
-            original_vertex = new_graph.GetVertex(v.index)
-            Percolate(new_graph, original_vertex)'''
             new_graph = PercolationPlayer.Percolate_immutable(graph, v)
             # Check if the game is over (if and elif statements). If it is, I win
             if new_graph == None:
@@ -228,8 +222,6 @@ class PercolationPlayer:
             elif len([v for v in new_graph.V if v.color == (player+1)%2])==0:
                 #print("yay")
                 return (v, 1)
-            # Never gets below here
-            #print("ooooooooo")
             your_moves = [v for v in new_graph.V if v.color == ((player+1)%2)]
             # Probability that I win
             # Note that if p_win = 1, then it's a win for my player, so I win
@@ -237,9 +229,6 @@ class PercolationPlayer:
             p_win = 0
             # Consider each of the other player's moves in response
             for u in your_moves:
-                '''new_new_graph = copy.deepcopy(new_graph)
-                original_vertex_new = new_new_graph.GetVertex(u.index)
-                Percolate(new_new_graph, original_vertex_new)'''
                 new_new_graph = PercolationPlayer.Percolate_immutable(new_graph, u)
                 # Check if the game is over (if and elif statements). If it is, I lose
                 if new_new_graph == None:
@@ -363,7 +352,20 @@ class Hashable_Graph:
             return False
 
     def __hash__(self):
-        return hash(repr(self))
+        vertices = list(graph.V)
+        vertices.sort(key = lambda x: x.index)
+        vertex_hash = 0
+        for vertex in vertices:
+            vertex_hash = 3*vertex_hash + vertex.color+1
+        edges = list(graph.E)
+        for edge in edges:
+            if edge.a.index > edge.b.index:
+                edge.a.index, edge.b.index = edge.b.index, edge.a.index
+        edges.sort(key = lambda x: (x.a.index, x.b.index))
+        edge_hash = 0
+        for edge in edges:
+            edge_hash = edge_hash + 2**(edge.a.index + len(vertices)*edge.b.index)
+        return vertex_hash + edge_hash*3**(len(vertices)+1)
 
     # Gets a vertex with given index if it exists, else return None.
     def GetVertex(self, i):
@@ -377,7 +379,7 @@ class Hashable_Graph:
         return [e for e in self.E if (e.a == v or e.b == v)]
 
 
-'''@functools.lru_cache(maxsize=1000)
+@functools.lru_cache(maxsize=1000)
 def fibbonaci(n):
     if n==0:
         return 0
@@ -389,105 +391,51 @@ def memoize (f):
     cache = dict()
     def memoized_f(*args):
         if args in cache:
+            print("yay")
             return cache[args]
         result = f(*args)
         cache[args] = result
         return result
-    return memoized_f'''
+    return memoized_f
 
 # Feel free to put any personal driver code here.
 def main():
     pass
 
 if __name__ == "__main__":
-    '''graph = BinomialRandomGraph(random.randint(1, 4), random.random())
-    active_player = 0
-    while any(v.color == -1 for v in graph.V):
-        chosen_vertex = RandomPlayer.ChooseVertexToColor(copy.deepcopy(graph), active_player)
-        chosen_vertex.color = active_player
-        active_player = 1 - active_player
-        print(graph)
-    print(graph)
-    my_moves = [v for v in graph.V]
-    for v in my_moves:
-        new_graph = copy.deepcopy(graph)
-        print(new_graph)
-        new_graph = PercolationPlayer.Percolate_immutable(graph, v)
-        print(new_graph)
-        if new_graph == None:
-            print("a")
-            break
-        elif len([v for v in new_graph.V if v.color == (0+1)%2])==0:
-            print("b")
-            break
-    print("ok done")'''
-    '''print(new_graph)
-    v = random.choice(list(new_graph.V))
-    print(v)
-    print(v in graph.V)
-    new_graph = PercolationPlayer.Color_immutable(new_graph, v, 1)
-    print(new_graph)
-    new_graph = PercolationPlayer.Percolate_immutable(graph, v)
-    print(new_graph)'''
-    '''print(graph)
-    graph = PercolationPlayer.Graph_to_Hashable_Graph(graph)
-    print(graph)
-    v = random.choice(list(graph.V))
-    print(v)
-    graph = PercolationPlayer.Percolate_immutable(graph, v)
-    print(graph)'''
-    '''graph_new = copy.deepcopy(graph)
-    print(graph_new)
-    print(hash(graph_new)==hash(graph))
-    print(graph_new==graph)'''
-    '''v = list(graph.V)[0]
-    graph.V.add(v)
-    print(v)
-    for x in graph.V:
-        if hash(x)==hash(v) and x==v:
-            print(x)
-            print(x==v)
-            print(x is v)
-            print("yay")
-    print(v in graph.V)
-    print(graph.V)
-    print(any(v is e or v==e for e in graph.V))
-    graph.V.remove(v)'''
-
-    '''cache = dict()
-    cache[(graph, 0)] = "result"
-    new_graph = copy.deepcopy(graph)
-    print(graph.E==new_graph.E)
-    if (new_graph, 0) in cache:
-        print("yay")
-    active_player = 0
-    while any(v.color == -1 for v in graph.V):
-        chosen_vertex = RandomPlayer.ChooseVertexToColor(copy.copy(graph), active_player)
-        original_vertex = graph.GetVertex(chosen_vertex.index)
-        original_vertex.color = active_player
-        active_player = 1 - active_player
-    print(graph)
-    print(PercolationPlayer.ChooseVertexToRemove_helper(graph, 0))
-    print(PercolationPlayer.ChooseVertexToRemove_helper.cache_info())'''
-    '''fibbonaci(35)
-    print(fibbonaci.cache_info())'''
+    for i in range(500):
+        graph = BinomialRandomGraph(random.randint(1, 4), random.random())
+        active_player = 0
+        while any(v.color == -1 for v in graph.V):
+            chosen_vertex = RandomPlayer.ChooseVertexToColor(copy.copy(graph), active_player)
+            original_vertex = graph.GetVertex(chosen_vertex.index)
+            original_vertex.color = active_player
+            active_player = 1 - active_player
+        #print(graph)
+        graph = PercolationPlayer.Graph_to_Hashable_Graph(graph)
+        new_graph = PercolationPlayer.Graph_to_Hashable_Graph(graph)
+        print(graph==new_graph)
+        PercolationPlayer.ChooseVertexToRemove_helper(graph, 0)
+        print(PercolationPlayer.ChooseVertexToRemove_helper.cache_info())
+    #fibbonaci(35)
+    #print(fibbonaci.cache_info())
     # NOTE: we are not creating INSTANCES of these classes, we're defining the players
     # as the class itself. This lets us call the static methods.
     #p1 = RandomPlayer
     # Comment the above line and uncomment the next two if
     # you'd like to test the PercolationPlayer code in this repo.
     #from percolator import PercolationPlayer
-    start_time = time.time()
+    '''start_time = time.time()
     p1 = PercolationPlayer
     p2 = RandomPlayer
     # Used to be 200 [FIX LATER]
-    iters = 25
+    iters = 70
     wins = PlayBenchmark(p1, p2, iters)
     print(
         "Player 1 (Me): {0} Player 2 (Random): {1}".format(
             1.0 * wins[0] / sum(wins), 1.0 * wins[1] / sum(wins)
         )
     )
-    print(PercolationPlayer.ChooseVertexToRemove_helper.cache_info())
+    #print(PercolationPlayer.ChooseVertexToRemove_helper.cache_info())
     #print(PercolationPlayer.ChooseVertexToColor_helper.cache_info())
-    print((time.time()-start_time) / (2*iters))
+    print((time.time()-start_time) / (2*iters))'''
