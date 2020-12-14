@@ -130,20 +130,21 @@ class PercolationPlayer:
     # `graph` is an instance of a Graph, `player` is an integer (0 or 1).
     # Should return a vertex `v` from graph.V where v.color == -1
     def ChooseVertexToColor(graph, player):
-        '''undecideds = [[v, len(graph.IncidentEdges(v))] for v in graph.V if v.color == -1]
+        undecideds = [[v, len(graph.IncidentEdges(v))] for v in graph.V if v.color == -1]
         undecideds.sort(key = lambda x: -x[1])
-        return undecideds[0][0]'''
-        return random.choice([v for v in graph.V if v.color == -1])
+        return undecideds[0][0]
+        #return random.choice([v for v in graph.V if v.color == -1])
 
     # `graph` is an instance of a Graph, `player` is an integer (0 or 1).
     # Should return a vertex `v` from graph.V where v.color == player
     def ChooseVertexToRemove(graph, player):
-        if len(graph.V)>=10:
+        if len(graph.V)>=11:
             #print("Too hard!")
             return random.choice([v for v in graph.V if v.color == player])
-        print(PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[1])
+        result = PercolationPlayer.ChooseVertexToRemove_helper(graph, player)
+        print(result[1])
         print("Removing")
-        return PercolationPlayer.ChooseVertexToRemove_helper(graph, player)[0]
+        return result[0]
 
     # Recursive helper. Returns a tuple, composed of the vertex to be removed
     # followed by the probability that I win
