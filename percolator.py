@@ -42,18 +42,10 @@ class PercolationPlayer:
                 result = memoized_colorer(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
                 return result[0]
         except TimeoutError as e:
-            return PercolationPlayer.heuristic_coloring(graph, player)
-
-    def heuristic_coloring(graph, player):
-        moves = []
-        my_moves = [v for v in graph.V if v.color == -1]
-        for v in my_moves:
-            if v in PercolationPlayer.GetNeighbors(graph, v):
-                moves.append((v, len(PercolationPlayer.IncidentEdges(graph, v))))
-            else:
-                moves.append((v, len(PercolationPlayer.IncidentEdges(graph, v))-4))
-        moves.sort(key = lambda x: -x[1])
-        return moves[0][0]
+            undecideds = [[v,len(PercolationPlayer.IncidentEdges(graph, v))] for v in graph.V if v.color == -1]
+            undecideds.sort(key = lambda x: -x[1])
+            chosen_vertex = undecideds[0][0]
+            return chosen_vertex
 
     # Recursive helper
     def ChooseVertexToColor_helper(graph, player):
@@ -104,7 +96,12 @@ class PercolationPlayer:
                 result = memoized_remover(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
                 return result[0]
         except TimeoutError as e:
-            return PercolationPlayer.heuristic_removing(graph, player)
+            offensive=1
+            defensive=0
+            choices = [[v,offensive * len(PercolationPlayer.IncidentDiffColorEdges(graph, v)) - defensive * len(PercolationPlayer.IncidentSameColorEdges(graph, v)) ] for v in graph.V if v.color == player]
+            choices.sort(key = lambda x: -x[1])
+            chosen_vertex = choices[0][0]
+            return chosen_vertex
 
     # Recursive helper. Returns a tuple, composed of the vertex to be removed
     # followed by the probability that I win
@@ -139,20 +136,6 @@ class PercolationPlayer:
         p_wins.sort(key = lambda x: -x[1])
         return p_wins[0]
 
-    def heuristic_removing(graph, player):
-        moves = []
-        my_moves = [v for v in graph.V if v.color == player]
-        for v in my_moves:
-            goodness = 0
-            for neighbor in PercolationPlayer.GetNeighbors(graph, v):
-                if neighbor in my_moves:
-                    goodness = goodness-3
-                else:
-                    goodness = goodness+1
-            moves.append((v, goodness))
-        moves.sort(key = lambda x: -x[1])
-        return moves[0][0]
-
 
     # MISCELLANEOUS/HELPER FUNCTIONS
 
@@ -167,6 +150,12 @@ class PercolationPlayer:
 
     def IncidentEdges(graph, v):
         return [e for e in graph.E if (e.a == v or e.b == v)]
+
+    def IncidentSameColorEdges(graph, v):
+        return [e for e in graph.E if ((e.a == v and e.b.color == v.color) or (e.b == v and e.a.color == v.color))]
+
+    def IncidentDiffColorEdges(graph, v):
+        return [e for e in graph.E if ((e.a == v and e.b.color != v.color) or (e.b == v and e.a.color != v.color))]
 
 
     # EVERYTHING BELOW USES HASHABLE GRAPH/EDGE/VERTEX (EXCEPT Graph_to_Hashable_Graph)
