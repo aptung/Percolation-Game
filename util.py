@@ -9,6 +9,7 @@ class Vertex:
         else:
             return "Vertex({0}, {1})".format(self.index, self.color)
 
+
 class Edge:
     def __init__(self, a, b):
         self.a = a
@@ -31,13 +32,16 @@ class Graph:
         E = [Edge(V[e.a.index], V[e.b.index]) for e in self.E]
         return Graph(V.values(), E)
 
-    # Gets a vertex with given index if it exists, else return None.
-    def GetVertex(self, i):
-        for v in self.V:
-            if v.index == i:
-                return v
-        return None
+### DO NOT RELY ON THESE METHODS IN YOUR CODE! THEY WILL NOT NECESSARILY EXIST! ###
+### THESE ARE BEING USED FOR DRIVER CODE ONLY ###
 
-    # Returns the incident edges on a vertex.
-    def IncidentEdges(self, v):
-        return [e for e in self.E if (e.a == v or e.b == v)]
+# Gets a vertex with given index if it exists, else return None.
+def GetVertex(graph, i):
+    for v in graph.V:
+        if v.index == i:
+            return v
+    return None
+
+# Returns the incident edges on a vertex.
+def IncidentEdges(graph, v):
+    return [e for e in graph.E if (e.a == v or e.b == v)]
