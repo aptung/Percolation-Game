@@ -17,7 +17,7 @@ class TimeoutError(Exception):
     pass
 
 class Timeout:
-    def __init__(self, seconds=0.1, error_message="Timeout of {0} seconds hit"):
+    def __init__(self, seconds=0.5, error_message="Timeout of {0} seconds hit"):
         self.seconds = seconds
         self.error_message = error_message.format(seconds)
     def handle_timeout(self, signum, frame):
@@ -40,8 +40,6 @@ class PercolationPlayer:
             with Timeout():
                 memoized_colorer = memoize(PercolationPlayer.ChooseVertexToColor_helper)
                 result = memoized_colorer(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
-                print(result[1])
-                print("Coloring")
                 return result[0]
         except TimeoutError as e:
             return PercolationPlayer.heuristic_coloring(graph, player)
@@ -104,8 +102,6 @@ class PercolationPlayer:
             with Timeout():
                 memoized_remover = memoize(PercolationPlayer.ChooseVertexToRemove_helper)
                 result = memoized_remover(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
-                print(result[1])
-                print("Removing")
                 return result[0]
         except TimeoutError as e:
             return PercolationPlayer.heuristic_removing(graph, player)
