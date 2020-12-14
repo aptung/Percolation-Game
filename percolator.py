@@ -17,7 +17,7 @@ class TimeoutError(Exception):
     pass
 
 class Timeout:
-    def __init__(self, seconds=0.5, error_message="Timeout of {0} seconds hit"):
+    def __init__(self, seconds=0.49, error_message="Timeout of {0} seconds hit"):
         self.seconds = seconds
         self.error_message = error_message.format(seconds)
     def handle_timeout(self, signum, frame):
