@@ -5,173 +5,79 @@ import sys
 import traceback
 import time
 import functools
+import time
+import signal
+import errno
 
 from util import Vertex
 from util import Edge
 from util import Graph
 
-# Removes the given vertex v from the graph, as well as the edges attached to it.
-# Removes all isolated vertices from the graph as well.
-def Percolate(graph, v):
-    # Get attached edges to this vertex, remove them.
-    for e in graph.IncidentEdges(v):
-        graph.E.remove(e)
-    # Remove this vertex.
-    graph.V.remove(v)
-    # Remove all isolated vertices.
-    to_remove = {u for u in graph.V if len(graph.IncidentEdges(u)) == 0}
-    graph.V.difference_update(to_remove)
+class TimeoutError(Exception):
+    pass
 
-# This is the main game loop.
-def PlayGraph(s, t, graph):
-    players = [s, t]
-    active_player = 0
-
-    # Phase 1: Coloring Phase
-    while any(v.color == -1 for v in graph.V):
-        # First, try to just *run* the player's code to get their vertex.
-        try:
-            chosen_vertex = players[active_player].ChooseVertexToColor(copy.deepcopy(graph), active_player)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return 1 - active_player
-        # Next, check that their output was reasonable.
-        try:
-            original_vertex = graph.GetVertex(chosen_vertex.index)
-            if not original_vertex:
-                return 1 - active_player
-            if original_vertex.color != -1:
-                return 1 - active_player
-            # If output is reasonable, color this vertex.
-            original_vertex.color = active_player
-        # Only case when this should fire is if chosen_vertex.index does not exist or similar error.
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return 1 - active_player
-        #print(graph) #FIX
-        # Swap current player.
-        active_player = 1 - active_player
-
-    # Check that all vertices are colored now.
-    assert all(v.color != -1 for v in graph.V)
-    #FIX
-    #print("Ok, finished coloring. The graph is")
-    #print(graph)
-    # Phase 2: Removal phase
-    # Continue while both players have vertices left to remove.
-    while len([v for v in graph.V if v.color == active_player]) > 0:
-        # First, try to just *run* the removal code.
-        try:
-            chosen_vertex = players[active_player].ChooseVertexToRemove(copy.deepcopy(graph), active_player)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return 1 - active_player
-        # Next, check that their output was reasonable.
-        try:
-            original_vertex = graph.GetVertex(chosen_vertex.index)
-            if not original_vertex:
-                return 1 - active_player
-            if original_vertex.color != active_player:
-                return 1 - active_player
-            # If output is reasonable, remove ("percolate") this vertex + edges attached to it, as well as isolated vertices.
-            #print(original_vertex)
-            Percolate(graph, original_vertex)
-        # Only case when this should fire is if chosen_vertex.index does not exist or similar error.
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return 1 - active_player
-        #print(graph) #FIX
-        # Swap current player
-        active_player = 1 - active_player
-
-    # Winner is the non-active player.
-    return 1 - active_player
-
-
-# This method generates a binomial random graph with 2k vertices
-# having probability p of an edge between each pair of vertices.
-def BinomialRandomGraph(k, p):
-    v = {Vertex(i) for i in range(2 * k)}
-    e = {Edge(a, b) for (a, b) in itertools.combinations(v, 2) if random.random() < p}
-    return Graph(v, e)
-
-
-# This method creates and plays a number of random graphs using both passed in players.
-def PlayBenchmark(p1, p2, iters):
-    graphs = (
-    # range of number of vertices: 2-40 [FIX LATER]
-        BinomialRandomGraph(random.randint(1, 20), random.random())
-        for _ in range(iters)
-    )
-    wins = [0, 0]
-    for graph in graphs:
-        g1 = copy.deepcopy(graph)
-        g2 = copy.deepcopy(graph)
-        # Each player gets a chance to go first on each graph.
-        winner_a = PlayGraph(p1, p2, g1)
-        wins[winner_a] += 1
-        print(wins) #FIX
-        winner_b = PlayGraph(p2, p1, g2)
-        wins[1-winner_b] += 1
-        print(wins) #FIX
-    return wins
-
-
-# This is a player that plays a legal move at random.
-class RandomPlayer:
-    # These are "static methdods" - note there's no "self" parameter here.
-    # These methods are defined on the blueprint/class definition rather than
-    # any particular instance.
-    def ChooseVertexToColor(graph, active_player):
-        return random.choice([v for v in graph.V if v.color == -1])
-
-    def ChooseVertexToRemove(graph, active_player):
-        return random.choice([v for v in graph.V if v.color == active_player])
+class Timeout:
+    def __init__(self, seconds=0.1, error_message="Timeout of {0} seconds hit"):
+        self.seconds = seconds
+        self.error_message = error_message.format(seconds)
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.setitimer(signal.ITIMER_REAL, self.seconds)
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
 
 # TO DO
 class PercolationPlayer:
+
+    # COLORING FUNCTIONS
+
     # `graph` is an instance of a Graph, `player` is an integer (0 or 1).
     # Should return a vertex `v` from graph.V where v.color == -1
     def ChooseVertexToColor(graph, player):
-        #if len(graph.V)>=8:
-            '''undecideds = [[v, len(graph.IncidentEdges(v))] for v in graph.V if v.color == -1]
-            undecideds.sort(key = lambda x: -x[1])
-            return undecideds[0][0]'''
-            return random.choice([v for v in graph.V if v.color == -1])
-        #print(PercolationPlayer.ChooseVertexToColor_helper(graph, player)[1])
-        #print("Coloring")
-        #return PercolationPlayer.ChooseVertexToColor_helper(graph, player)[0]
+        try:
+            with Timeout():
+                memoized_colorer = memoize(PercolationPlayer.ChooseVertexToColor_helper)
+                result = memoized_colorer(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
+                print(result[1])
+                print("Coloring")
+                return result[0]
+        except TimeoutError as e:
+            return PercolationPlayer.heuristic_coloring(graph, player)
 
-    #@functools.lru_cache(maxsize=10000000)
+    def heuristic_coloring(graph, player):
+        moves = []
+        my_moves = [v for v in graph.V if v.color == -1]
+        for v in my_moves:
+            if v in PercolationPlayer.GetNeighbors(graph, v):
+                moves.append((v, len(PercolationPlayer.IncidentEdges(graph, v))))
+            else:
+                moves.append((v, len(PercolationPlayer.IncidentEdges(graph, v))-4))
+        moves.sort(key = lambda x: -x[1])
+        return moves[0][0]
+
+    # Recursive helper
     def ChooseVertexToColor_helper(graph, player):
         my_moves = [v for v in graph.V if v.color == -1]
         p_wins = []
         for v in my_moves:
-            new_graph = copy.deepcopy(graph)
-            original_vertex = new_graph.GetVertex(v.index)
-            original_vertex.color = player
+            new_graph = PercolationPlayer.Color_immutable(graph, v, player)
             # Then I really only had one option, since I must be second player
             if len(my_moves)==1:
                 return (v, PercolationPlayer.ChooseVertexToColor_helper_2ndplayer(new_graph, 1))
             your_moves = [v for v in new_graph.V if v.color == -1]
             p_win = 0
             for u in your_moves:
-                new_new_graph = copy.deepcopy(new_graph)
-                original_vertex_new = new_new_graph.GetVertex(u.index)
-                original_vertex_new.color = 1-player
+                new_new_graph = PercolationPlayer.Color_immutable(new_graph, u, 1-player)
                 if len([v for v in new_new_graph.V if v.color == -1]) == 0:
                     p_win = p_win + PercolationPlayer.ChooseVertexToRemove_helper(new_new_graph, player)[1]
                 else:
                     p_win = p_win + PercolationPlayer.ChooseVertexToColor_helper(new_new_graph, player)[1]
             p_win = p_win/len(your_moves)
-            p_wins.append(p_win)
-        max_p = 0
-        max_p_index = 0
-        for i in range(len(p_wins)):
-            if p_wins[i]>=max_p:
-                max_p = p_wins[i]
-                max_p_index = i
-        return (my_moves[max_p_index], max_p)
+            p_wins.append((v, p_win))
+        p_wins.sort(key = lambda x: -x[1])
+        return p_wins[0]
 
     # Helper method for ChooseVertexToColor_helper
     # Called to determine how good a colored graph is as a starting point, if we're second player (player 1)
@@ -179,37 +85,33 @@ class PercolationPlayer:
         your_moves = [v for v in graph.V if v.color==1-player]
         p = 0
         for v in your_moves:
-            new_graph = copy.deepcopy(graph)
-            original_vertex = new_graph.GetVertex(v.index)
-            Percolate(new_graph, original_vertex)
+            new_graph = PercolationPlayer.Percolate_immutable(graph, v)
             if new_graph == None:
                 p+=0
             elif len([v for v in new_graph.V if v.color == player])==0:
                 p+=0
             else:
-                #print(new_graph)
                 p += PercolationPlayer.ChooseVertexToRemove_helper(new_graph, player)[1]
         return p/len(your_moves)
+
+
+    # REMOVING FUNCTIONS
 
     # `graph` is an instance of a Graph, `player` is an integer (0 or 1).
     # Should return a vertex `v` from graph.V where v.color == player
     def ChooseVertexToRemove(graph, player):
-        if len(graph.V)>=10:
-            '''undecideds = [[v, len(graph.IncidentEdges(v))] for v in graph.V if v.color == player]
-            undecideds.sort(key = lambda x: x[1])
-            return undecideds[0][0]'''
-            print("too hard")
-            #return random.choice([v for v in graph.V if v.color == player])
-        #memoized_remover = memoize(PercolationPlayer.ChooseVertexToRemove_helper)
-        #result = memoized_remover(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
-        result = PercolationPlayer.ChooseVertexToRemove_helper(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
-        print(result[1])
-        print("Removing")
-        return result[0]
+        try:
+            with Timeout():
+                memoized_remover = memoize(PercolationPlayer.ChooseVertexToRemove_helper)
+                result = memoized_remover(PercolationPlayer.Graph_to_Hashable_Graph(graph), player)
+                print(result[1])
+                print("Removing")
+                return result[0]
+        except TimeoutError as e:
+            return PercolationPlayer.heuristic_removing(graph, player)
 
     # Recursive helper. Returns a tuple, composed of the vertex to be removed
     # followed by the probability that I win
-    @functools.lru_cache(maxsize=10000000)
     def ChooseVertexToRemove_helper(graph, player):
         my_moves = [v for v in graph.V if v.color == player]
         p_wins = []
@@ -220,7 +122,6 @@ class PercolationPlayer:
             if new_graph == None:
                 return (v, 1)
             elif len([v for v in new_graph.V if v.color == (player+1)%2])==0:
-                #print("yay")
                 return (v, 1)
             your_moves = [v for v in new_graph.V if v.color == ((player+1)%2)]
             # Probability that I win
@@ -238,26 +139,48 @@ class PercolationPlayer:
                 else:
                     p_win = p_win + PercolationPlayer.ChooseVertexToRemove_helper(new_new_graph, player)[1]
             p_win = p_win/len(your_moves) # Average of the win probabilities for each move, since the other player chooses randomly
-            p_wins.append(p_win)
+            p_wins.append((v, p_win))
+        p_wins.sort(key = lambda x: -x[1])
+        return p_wins[0]
 
-        # Find the best move (highest win probability)
-        max_p = 0
-        max_p_index = 0
-        for i in range(len(p_wins)):
-            if p_wins[i]>=max_p:
-                max_p = p_wins[i]
-                max_p_index = i
-        return (my_moves[max_p_index], max_p)
+    def heuristic_removing(graph, player):
+        moves = []
+        my_moves = [v for v in graph.V if v.color == player]
+        for v in my_moves:
+            goodness = 0
+            for neighbor in PercolationPlayer.GetNeighbors(graph, v):
+                if neighbor in my_moves:
+                    goodness = goodness-3
+                else:
+                    goodness = goodness+1
+            moves.append((v, goodness))
+        moves.sort(key = lambda x: -x[1])
+        return moves[0][0]
+
+
+    # MISCELLANEOUS/HELPER FUNCTIONS
+
+    def GetNeighbors(graph, v):
+        neighbors = []
+        for edge in PercolationPlayer.IncidentEdges(graph, v):
+            if edge.a == v:
+                neighbors.append(edge.b)
+            else:
+                neighbors.append(edge.a)
+        return neighbors
+
+    def IncidentEdges(graph, v):
+        return [e for e in graph.E if (e.a == v or e.b == v)]
+
+
+    # EVERYTHING BELOW USES HASHABLE GRAPH/EDGE/VERTEX (EXCEPT Graph_to_Hashable_Graph)
 
     # Removes the given vertex v from the graph, as well as the edges attached to it.
     # Removes all isolated vertices from the graph as well.
     # Takes in hashable graph, hashable vertex
     def Percolate_immutable(graph, v):
-        #print("graph:" + str(graph))
-        #print("vertex to remove:" + str(v))
         new_edges = copy.deepcopy(graph.E)
         new_vertices = copy.deepcopy(graph.V)
-        #print("new vertices:" + str(new_vertices))
         edges_to_delete = set(PercolationPlayer.Find_IncidentEdges(new_edges, v))
         new_edges.difference_update(edges_to_delete)
         vertex_to_delete = None
@@ -265,9 +188,7 @@ class PercolationPlayer:
             if vertex.index == v.index:
                 vertex_to_delete = vertex
         new_vertices.remove(vertex_to_delete)
-        #print("new vertices:" + str(new_vertices))
         to_remove = {u for u in new_vertices if len(PercolationPlayer.Find_IncidentEdges(new_edges, u)) == 0}
-        #print("to remove:" + str(to_remove))
         new_vertices.difference_update(to_remove)
         return Hashable_Graph(new_vertices, new_edges)
 
@@ -278,14 +199,11 @@ class PercolationPlayer:
                 new_vertices.add(Hashable_Vertex(vertex.index, vertex.color))
         new_vertex = Hashable_Vertex(v.index, color)
         new_vertices.add(new_vertex)
-        new_edges = set()
-        for e in graph.E:
-            new_edges.add(Hashable_Edge(e.a, e.b))
+        new_edges = copy.deepcopy(graph.E)
         return Hashable_Graph(new_vertices, new_edges)
 
     def Find_IncidentEdges(edges, v):
         return [e for e in edges if e.a.index==v.index or e.b.index == v.index]
-
 
     def Graph_to_Hashable_Graph(graph):
         new_vertices = set()
@@ -295,9 +213,6 @@ class PercolationPlayer:
         for e in graph.E:
             new_edges.add(Hashable_Edge(e.a, e.b))
         return Hashable_Graph(new_vertices, new_edges)
-
-    def Hashable_Graph_to_Graph(hashable_graph):
-        return Graph(hashable_graph.V, hashable_graph.E)
 
 class Hashable_Vertex:
     def __init__(self, index, color=-1):
@@ -336,7 +251,6 @@ class Hashable_Edge:
     def __hash__(self):
         return hash(self.a) ^ hash(self.b)
 
-
 class Hashable_Graph:
     def __init__(self, v, e):
         self.V = set(v)
@@ -352,20 +266,20 @@ class Hashable_Graph:
             return False
 
     def __hash__(self):
-        vertices = list(graph.V)
+        vertices = list(self.V)
         vertices.sort(key = lambda x: x.index)
         vertex_hash = 0
         for vertex in vertices:
             vertex_hash = 3*vertex_hash + vertex.color+1
-        edges = list(graph.E)
+        edges = list(self.E)
         for edge in edges:
             if edge.a.index > edge.b.index:
-                edge.a.index, edge.b.index = edge.b.index, edge.a.index
+                edge.a, edge.b = edge.b, edge.a
         edges.sort(key = lambda x: (x.a.index, x.b.index))
         edge_hash = 0
         for edge in edges:
             edge_hash = edge_hash + 2**(edge.a.index + len(vertices)*edge.b.index)
-        return vertex_hash + edge_hash*3**(len(vertices)+1)
+        return vertex_hash + edge_hash*(3**(len(vertices)+1))
 
     # Gets a vertex with given index if it exists, else return None.
     def GetVertex(self, i):
@@ -378,64 +292,12 @@ class Hashable_Graph:
     def IncidentEdges(self, v):
         return [e for e in self.E if (e.a == v or e.b == v)]
 
-
-@functools.lru_cache(maxsize=1000)
-def fibbonaci(n):
-    if n==0:
-        return 0
-    elif n==1:
-        return 1
-    return fibbonaci(n-1) + fibbonaci(n-2)
-
 def memoize (f):
     cache = dict()
     def memoized_f(*args):
         if args in cache:
-            print("yay")
             return cache[args]
         result = f(*args)
         cache[args] = result
         return result
     return memoized_f
-
-# Feel free to put any personal driver code here.
-def main():
-    pass
-
-if __name__ == "__main__":
-    for i in range(500):
-        graph = BinomialRandomGraph(random.randint(1, 4), random.random())
-        active_player = 0
-        while any(v.color == -1 for v in graph.V):
-            chosen_vertex = RandomPlayer.ChooseVertexToColor(copy.copy(graph), active_player)
-            original_vertex = graph.GetVertex(chosen_vertex.index)
-            original_vertex.color = active_player
-            active_player = 1 - active_player
-        #print(graph)
-        graph = PercolationPlayer.Graph_to_Hashable_Graph(graph)
-        new_graph = PercolationPlayer.Graph_to_Hashable_Graph(graph)
-        print(graph==new_graph)
-        PercolationPlayer.ChooseVertexToRemove_helper(graph, 0)
-        print(PercolationPlayer.ChooseVertexToRemove_helper.cache_info())
-    #fibbonaci(35)
-    #print(fibbonaci.cache_info())
-    # NOTE: we are not creating INSTANCES of these classes, we're defining the players
-    # as the class itself. This lets us call the static methods.
-    #p1 = RandomPlayer
-    # Comment the above line and uncomment the next two if
-    # you'd like to test the PercolationPlayer code in this repo.
-    #from percolator import PercolationPlayer
-    '''start_time = time.time()
-    p1 = PercolationPlayer
-    p2 = RandomPlayer
-    # Used to be 200 [FIX LATER]
-    iters = 70
-    wins = PlayBenchmark(p1, p2, iters)
-    print(
-        "Player 1 (Me): {0} Player 2 (Random): {1}".format(
-            1.0 * wins[0] / sum(wins), 1.0 * wins[1] / sum(wins)
-        )
-    )
-    #print(PercolationPlayer.ChooseVertexToRemove_helper.cache_info())
-    #print(PercolationPlayer.ChooseVertexToColor_helper.cache_info())
-    print((time.time()-start_time) / (2*iters))'''
